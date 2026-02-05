@@ -298,7 +298,7 @@ while IFS= read -r file; do
     date_part=$(echo "$formatted_time" | cut -d'_' -f1)
     time_part=$(echo "$formatted_time" | cut -d'_' -f2)
     echo "  提取时间: $date_part $time_part"
-    echo "  提取年月: $year年$month月"
+    echo "  提取年月: $year 年 $month 月"
     echo "  时间来源: $time_source"
     
     # 构建新文件名（统一使用IMG_前缀）
