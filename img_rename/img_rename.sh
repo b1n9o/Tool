@@ -194,10 +194,10 @@ while IFS= read -r file; do
     ((total_files++))
     echo "处理文件 ($total_files): $file"
     
-    # 获取文件扩展名（小写）
+    # 获取文件扩展名（原样保留大小写）
     extension="${file##*.}"
     extension_lower=$(echo "$extension" | tr '[:upper:]' '[:lower:]')
-    
+
     # 判断文件类型
     is_video=false
     for video_ext in "${VIDEO_EXTENSIONS[@]}"; do
@@ -208,7 +208,7 @@ while IFS= read -r file; do
             break
         fi
     done
-    
+
     if [[ "$is_video" == false ]]; then
         for photo_ext in "${PHOTO_EXTENSIONS[@]}"; do
             if [[ "$extension_lower" == "$photo_ext" ]]; then
@@ -218,9 +218,9 @@ while IFS= read -r file; do
             fi
         done
     fi
-    
+
     echo "  文件类型: $file_type"
-    
+
     # 使用exiftool按照优先级获取日期字段
     creation_date=""
     used_tag=""
@@ -235,13 +235,13 @@ while IFS= read -r file; do
             break
         fi
     done
-    
+
     # 如果没有从元数据标签获取到时间，尝试从文件名中解析
     time_source="元数据"
     if [[ -z "$creation_date" ]]; then
         echo "  ℹ️  无法从元数据标签获取时间，尝试从文件名中解析..."
         filename_time=$(extract_time_from_filename "$file")
-        
+
         if [[ -n "$filename_time" ]]; then
             creation_date="$filename_time"
             used_tag="文件名"
@@ -255,20 +255,20 @@ while IFS= read -r file; do
             continue
         fi
     fi
-    
+
     echo "  使用标签 [$used_tag]: $creation_date"
-    
+
     # 提取时间部分，移除时区信息（+08:00部分）
     # 格式示例: 2022:04:05 14:20:21+08:00
     time_str=$(echo "$creation_date" | sed 's/+.*//')
-    
+
     if [[ -z "$time_str" ]]; then
         echo "  ❌ 错误: 无法解析时间字符串，跳过此文件"
         ((failed_count++))
         echo ""
         continue
     fi
-    
+
     # 验证时间格式是否包含日期和时间
     # 修正正则表达式：确保时间部分包含冒号分隔符
     if [[ ! "$time_str" =~ ^[0-9]{4}:[0-9]{2}:[0-9]{2}[[:space:]][0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then
@@ -277,11 +277,11 @@ while IFS= read -r file; do
         echo ""
         continue
     fi
-    
+
     # 格式化时间为YYYYMMDD_HHMMSS格式
     # 移除冒号，替换空格为下划线
     formatted_time=$(echo "$time_str" | sed 's/://g' | sed 's/ /_/g')
-    
+
     # 验证最终格式 - 应该是8位日期_6位时间
     if [[ ! "$formatted_time" =~ ^[0-9]{8}_[0-9]{6}$ ]]; then
         echo "  ❌ 错误: 格式化后的时间格式不正确: $formatted_time，跳过此文件"
@@ -293,27 +293,27 @@ while IFS= read -r file; do
     # 提取年和月用于目录分类
     year=${formatted_time:0:4}  # 前4位是年
     month=${formatted_time:4:2} # 第5-6位是月
-    
+
     # 提取日期和时间部分用于调试
     date_part=$(echo "$formatted_time" | cut -d'_' -f1)
     time_part=$(echo "$formatted_time" | cut -d'_' -f2)
     echo "  提取时间: $date_part $time_part"
     echo "  提取年月: $year 年 $month 月"
     echo "  时间来源: $time_source"
-    
-    # 构建新文件名（统一使用IMG_前缀）
-    new_name="${IMAGE_PREFIX}${formatted_time}.${extension_lower}"
+
+    # 构建新文件名（统一使用IMG_前缀，保持原扩展名大小写）
+    new_name="${IMAGE_PREFIX}${formatted_time}.${extension}"
     echo "  新文件名: $new_name"
 
     # 检查原文件名是否已经符合目标格式
     # 将原文件名转为小写进行比较
     file_lower=$(echo "$file" | tr '[:upper:]' '[:lower:]')
     new_name_lower=$(echo "$new_name" | tr '[:upper:]' '[:lower:]')
-    
+
     # 设置最终文件名变量
     final_name=""
     skip_rename=false
-    
+
     # 首先检查原文件名是否已经符合目标格式（无序号）
     if [[ "$file_lower" == "$new_name_lower" ]]; then
         echo "  ℹ️  文件名已符合目标格式，跳过重命名"
@@ -326,7 +326,7 @@ while IFS= read -r file; do
         # 移除扩展名进行匹配
         file_base="${file_lower%.*}"
         new_base="${new_name_lower%.*}"
-        
+
         # 检查是否匹配 pattern: new_base_数字
         if [[ "$file_base" =~ ^${new_base}_[0-9]+$ ]]; then
             echo "  ℹ️  文件名已符合带序号的目标格式，跳过重命名"
@@ -335,7 +335,7 @@ while IFS= read -r file; do
             ((skipped_rename_count++))
         fi
     fi
-    
+
     # 如果文件不符合目标格式，需要进行重命名
     if [[ "$skip_rename" == false ]]; then
         # 如果目标文件名已存在，添加序号
@@ -349,12 +349,12 @@ while IFS= read -r file; do
                 base_name="${original_name%.*}"
                 # 如果已经有序号，先移除旧的序号
                 base_name=$(echo "$base_name" | sed -E 's/_[0-9]+$//')
-                temp_new_name="${base_name}_${counter}.${extension_lower}"
+                temp_new_name="${base_name}_${counter}.${extension}"
                 ((counter++))
             done
             echo "  新文件名: $temp_new_name"
         fi
-        
+
         # 重命名文件
         if [[ "$file" != "$temp_new_name" ]]; then
             echo "  ✅ 重命名为: $temp_new_name"
@@ -374,42 +374,42 @@ while IFS= read -r file; do
             ((skipped_rename_count++))
         fi
     fi
-    
+
     # 如果启用移动功能，将文件移动到分类目录
     if [[ "$MOVE_TO_CATEGORY" == "true" ]]; then
         # 获取当前目录的父目录路径
         parent_dir="$(dirname "$(pwd)")"
-        
+
         # 构建目标分类目录路径
         target_dir="${parent_dir}/${CATEGORY_BASE_NAME}/${year}/${month}/"
-        
+
         echo "  目标分类目录: $target_dir"
-        
+
         # 创建目录（如果不存在）
         mkdir -p "$target_dir"
-        
+
         # 检查目标目录中是否已存在同名文件
         target_path="${target_dir}${final_name}"
         if [[ -f "$target_path" ]]; then
             echo "  ⚠️  注意: 目标目录中已存在 $final_name，添加序号..."
             counter=2
             base_name="${final_name%.*}"
-            extension="${final_name##*.}"
+            extension_name="${final_name##*.}"
             # 移除可能已有的序号
             base_name=$(echo "$base_name" | sed -E 's/_[0-9]+$//')
-            target_path="${target_dir}${base_name}_${counter}.${extension}"
-            
+            target_path="${target_dir}${base_name}_${counter}.${extension_name}"
+
             while [[ -f "$target_path" ]]; do
                 ((counter++))
-                target_path="${target_dir}${base_name}_${counter}.${extension}"
+                target_path="${target_dir}${base_name}_${counter}.${extension_name}"
             done
             echo "  目标文件: $(basename "$target_path")"
         fi
-        
+
         # 移动文件到分类目录
         echo "  📁 移动到分类目录..."
         mv -n "$final_name" "$target_path"
-        
+
         if [[ $? -eq 0 ]]; then
             ((moved_count++))
             echo "  ✅ 移动成功"
@@ -417,7 +417,7 @@ while IFS= read -r file; do
             echo "  ❌ 错误: 移动文件失败"
         fi
     fi
-    
+
     echo ""
 done < "$TMP_FILE_LIST"
 
