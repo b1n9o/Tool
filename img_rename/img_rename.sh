@@ -343,10 +343,9 @@ while IFS= read -r file; do
         if [[ -f "$new_name" ]]; then
             echo "  ⚠️  注意: 文件 $new_name 已存在，添加序号..."
             counter=2
-            original_name="$new_name"
             while [[ -f "$temp_new_name" ]]; do
                 # 移除扩展名，添加序号
-                base_name="${original_name%.*}"
+                base_name="${new_name%.*}"
                 # 如果已经有序号，先移除旧的序号
                 base_name=$(echo "$base_name" | sed -E 's/_[0-9]+$//')
                 temp_new_name="${base_name}_${counter}.${extension}"
